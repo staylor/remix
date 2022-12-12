@@ -1,0 +1,29 @@
+{
+  "name": "@remix-run/storybook",
+  "version": "1.8.2",
+  "description": "Storybook framework for Remix apps",
+  "homepage": "https://remix.run",
+  "bugs": {
+    "url": "https://github.com/remix-run/remix/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/remix-run/remix",
+    "directory": "packages/remix-storybook"
+  },
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "typings": "./dist/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14"
+  },
+  "files": [
+    "dist/",
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "README.md"
+  ]
+}
