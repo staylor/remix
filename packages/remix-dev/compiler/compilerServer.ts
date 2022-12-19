@@ -120,7 +120,6 @@ const createEsbuildConfig = (
       ),
     },
     jsx: "automatic",
-    jsxDev: options.mode !== "production",
     plugins,
   };
 };
