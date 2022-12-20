@@ -169,7 +169,10 @@ test("resolved promises render in initial payload", async ({ page }) => {
   let criticalHTML = html.replace(/<\/html>.*/i, "");
   expect(criticalHTML).toContain(ROOT_ID);
   expect(criticalHTML).toContain(DEFERRED_ID);
+  expect(criticalHTML).not.toContain(FALLBACK_ID);
   expect(criticalHTML).toContain(RESOLVED_DEFERRED_ID);
+  let deferredHTML = html.replace(/.*<\/html>/gi, "");
+  expect(deferredHTML).toBe("");
 
   let app = new PlaywrightFixture(appFixture, page);
   await app.goto("/deferred-noscript-resolved");
@@ -181,11 +184,13 @@ test("resolved promises render in initial payload", async ({ page }) => {
 test("slow promises render in subsequent payload", async ({ page }) => {
   let response = await fixture.requestDocument("/deferred-noscript-unresolved");
   let html = await response.text();
-  let criticalHTML = html.replace(/<\/html>.*/ig, "");
+  let criticalHTML = html.replace(/<\/html>.*/gi, "");
   expect(criticalHTML).toContain(ROOT_ID);
   expect(criticalHTML).toContain(DEFERRED_ID);
   expect(criticalHTML).toContain(FALLBACK_ID);
   expect(criticalHTML).not.toContain(RESOLVED_DEFERRED_ID);
+  let deferredHTML = html.replace(/.*<\/html>/gi, "");
+  expect(deferredHTML).toContain(RESOLVED_DEFERRED_ID);
 
   let app = new PlaywrightFixture(appFixture, page);
   await app.goto("/deferred-noscript-resolved");
