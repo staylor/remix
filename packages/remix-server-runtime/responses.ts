@@ -1,3 +1,10 @@
+import { defer as routerDefer, type DeferredData } from "@remix-run/router";
+
+export type DeferFunction = <Data extends Record<string, unknown>>(
+  data: Data,
+  init?: number | ResponseInit
+) => unknown;
+
 export type JsonFunction = <Data extends unknown>(
   data: Data,
   init?: number | ResponseInit
@@ -32,6 +39,26 @@ export const json: JsonFunction = (data, init = {}) => {
   });
 };
 
+/**
+ * This is a shortcut for creating `application/json` responses. Converts `data`
+ * to JSON and sets the `Content-Type` header.
+ *
+ * @see https://remix.run/api/remix#json
+ */
+export const defer: DeferFunction = (data, init = {}) => {
+  let responseInit = typeof init === "number" ? { status: init } : init;
+
+  let headers = new Headers(responseInit.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json; charset=utf-8");
+  }
+
+  return routerDefer(data, {
+    ...responseInit,
+    headers,
+  });
+};
+
 export type RedirectFunction = (
   url: string,
   init?: number | ResponseInit
@@ -59,6 +86,18 @@ export const redirect: RedirectFunction = (url, init = 302) => {
     headers,
   }) as TypedResponse<never>;
 };
+
+export function isDeferredResponse(value: any): value is DeferredData {
+  let deferred: DeferredData = value;
+  return (
+    deferred &&
+    typeof deferred === "object" &&
+    typeof deferred.data === "object" &&
+    typeof deferred.subscribe === "function" &&
+    typeof deferred.cancel === "function" &&
+    typeof deferred.resolveData === "function"
+  );
+}
 
 export function isResponse(value: any): value is Response {
   return (

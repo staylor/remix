@@ -1,4 +1,4 @@
-import { json, isResponse } from "./responses";
+import { json, isDeferredResponse, isResponse } from "./responses";
 import type {
   ActionFunction,
   DataFunctionArgs,
@@ -71,6 +71,10 @@ export async function callRouteLoaderRR({
       `You defined a loader for route "${routeId}" but didn't return ` +
         `anything from your \`loader\` function. Please return a value or \`null\`.`
     );
+  }
+
+  if (isDeferredResponse(result)) {
+    return result;
   }
 
   return isResponse(result) ? result : json(result);
