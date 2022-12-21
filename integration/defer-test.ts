@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { PlaywrightFixture } from "./helpers/playwright-fixture";
 import type { Fixture, AppFixture } from "./helpers/create-fixture";
@@ -21,19 +22,21 @@ test.beforeAll(async () => {
     ////////////////////////////////////////////////////////////////////////////
     files: {
       "app/root.jsx": js`
-        import { json } from "@remix-run/node";
+        import { useState } from "react";
+        import { defer } from "@remix-run/node";
         import { Links, Meta, Outlet, Scripts, useLoaderData, useMatches } from "@remix-run/react";
 
-          export const loader = () => json({
-            ROOT_ID: "${ROOT_ID}",
+          export const loader = () => defer({
+            id: "${ROOT_ID}",
           });
 
           export default function Root() {
-            let { ROOT_ID } = useLoaderData();
+            let { id } = useLoaderData();
             let matches = useMatches();
             // Set export const handle = true on a route to enable
             // scripts for that route.
             let scripts = matches.some(match => match.handle);
+            let [count, setCount] = useState(0);
             return (
               <html lang="en">
                 <head>
@@ -41,8 +44,10 @@ test.beforeAll(async () => {
                   <Links />
                 </head>
                 <body>
-                  <div id={ROOT_ID}>
-                    <p>{ROOT_ID}</p>
+                  <div id={id}>
+                    <p>{id}</p>
+                    <button id="increment" onClick={() => setCount((c) => c+1)}>Increment</button>
+                    <p id="count">{count}</p>
                     <Outlet />
                   </div>
                   {scripts ? <Scripts /> : null}
@@ -56,17 +61,19 @@ test.beforeAll(async () => {
         import { defer } from "@remix-run/node";
         import { Link, useLoaderData } from "@remix-run/react";
 
+        export const handle = true;
+
         export function loader() {
           return defer({
-            INDEX_ID: "${INDEX_ID}",
+            id: "${INDEX_ID}",
           });
         }
 
         export default function Index() {
-          let { INDEX_ID } = useLoaderData();
+          let { id } = useLoaderData();
           return (
-            <div id={INDEX_ID}>
-              <p>{INDEX_ID}</p>
+            <div id={id}>
+              <p>{id}</p>
             </div>
           );
         }
@@ -79,19 +86,19 @@ test.beforeAll(async () => {
 
         export function loader() {
           return defer({
-            DEFERRED_ID: "${DEFERRED_ID}",
-            RESOLVED_DEFERRED_ID: Promise.resolve("${RESOLVED_DEFERRED_ID}"),
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: Promise.resolve("${RESOLVED_DEFERRED_ID}"),
           });
         }
 
         export default function Deferred() {
-          let { DEFERRED_ID, RESOLVED_DEFERRED_ID } = useLoaderData();
+          let { deferredId, resolvedId } = useLoaderData();
           return (
-            <div id={DEFERRED_ID}>
-              <p>{DEFERRED_ID}</p>
+            <div id={deferredId}>
+              <p>{deferredId}</p>
               <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
                 <Await
-                  resolve={RESOLVED_DEFERRED_ID}
+                  resolve={resolvedId}
                   children={(resolvedDeferredId) => (
                     <div id={resolvedDeferredId}>
                       <p>{resolvedDeferredId}</p>
@@ -111,8 +118,8 @@ test.beforeAll(async () => {
 
         export function loader() {
           return defer({
-            DEFERRED_ID: "${DEFERRED_ID}",
-            RESOLVED_DEFERRED_ID: new Promise(
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: new Promise(
               (resolve) => setTimeout(() => {
                 resolve("${RESOLVED_DEFERRED_ID}");
               }, 10)
@@ -121,13 +128,85 @@ test.beforeAll(async () => {
         }
 
         export default function Deferred() {
-          let { DEFERRED_ID, RESOLVED_DEFERRED_ID } = useLoaderData();
+          let { deferredId, resolvedId } = useLoaderData();
           return (
-            <div id={DEFERRED_ID}>
-              <p>{DEFERRED_ID}</p>
+            <div id={deferredId}>
+              <p>{deferredId}</p>
               <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
                 <Await
-                  resolve={RESOLVED_DEFERRED_ID}
+                  resolve={resolvedId}
+                  children={(resolvedDeferredId) => (
+                    <div id={resolvedDeferredId}>
+                      <p>{resolvedDeferredId}</p>
+                    </div>
+                  )}
+                />
+              </Suspense>
+            </div>
+          );
+        }
+      `,
+
+      "app/routes/deferred-script-resolved.jsx": js`
+        import { Suspense } from "react";
+        import { defer } from "@remix-run/node";
+        import { Await, Link, useLoaderData } from "@remix-run/react";
+
+        export const handle = true;
+
+        export function loader() {
+          return defer({
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: Promise.resolve("${RESOLVED_DEFERRED_ID}"),
+          });
+        }
+
+        export default function Deferred() {
+          let { deferredId, resolvedId } = useLoaderData();
+          return (
+            <div id={deferredId}>
+              <p>{deferredId}</p>
+              <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                <Await
+                  resolve={resolvedId}
+                  children={(resolvedDeferredId) => (
+                    <div id={resolvedDeferredId}>
+                      <p>{resolvedDeferredId}</p>
+                    </div>
+                  )}
+                />
+              </Suspense>
+            </div>
+          );
+        }
+      `,
+
+      "app/routes/deferred-script-unresolved.jsx": js`
+        import { Suspense } from "react";
+        import { defer } from "@remix-run/node";
+        import { Await, Link, useLoaderData } from "@remix-run/react";
+
+        export const handle = true;
+
+        export function loader() {
+          return defer({
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: new Promise(
+              (resolve) => setTimeout(() => {
+                resolve("${RESOLVED_DEFERRED_ID}");
+              }, 10)
+            ),
+          });
+        }
+
+        export default function Deferred() {
+          let { deferredId, resolvedId } = useLoaderData();
+          return (
+            <div id={deferredId}>
+              <p>{deferredId}</p>
+              <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                <Await
+                  resolve={resolvedId}
                   children={(resolvedDeferredId) => (
                     <div id={resolvedDeferredId}>
                       <p>{resolvedDeferredId}</p>
@@ -153,25 +232,29 @@ test.afterAll(() => {
 test("works with critical JSON like data", async ({ page }) => {
   let response = await fixture.requestDocument("/");
   let html = await response.text();
-  let criticalHTML = html.replace(/<\/html>.*/i, "");
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
   expect(criticalHTML).toContain(ROOT_ID);
   expect(criticalHTML).toContain(INDEX_ID);
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
+  expect(deferredHTML).toBe("");
 
   let app = new PlaywrightFixture(appFixture, page);
   await app.goto("/");
   await page.waitForSelector(`#${ROOT_ID}`);
   await page.waitForSelector(`#${INDEX_ID}`);
+
+  await ensureInteractivity(page);
 });
 
 test("resolved promises render in initial payload", async ({ page }) => {
   let response = await fixture.requestDocument("/deferred-noscript-resolved");
   let html = await response.text();
-  let criticalHTML = html.replace(/<\/html>.*/i, "");
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
   expect(criticalHTML).toContain(ROOT_ID);
   expect(criticalHTML).toContain(DEFERRED_ID);
   expect(criticalHTML).not.toContain(FALLBACK_ID);
   expect(criticalHTML).toContain(RESOLVED_DEFERRED_ID);
-  let deferredHTML = html.replace(/.*<\/html>/gi, "");
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
   expect(deferredHTML).toBe("");
 
   let app = new PlaywrightFixture(appFixture, page);
@@ -184,17 +267,67 @@ test("resolved promises render in initial payload", async ({ page }) => {
 test("slow promises render in subsequent payload", async ({ page }) => {
   let response = await fixture.requestDocument("/deferred-noscript-unresolved");
   let html = await response.text();
-  let criticalHTML = html.replace(/<\/html>.*/gi, "");
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
   expect(criticalHTML).toContain(ROOT_ID);
   expect(criticalHTML).toContain(DEFERRED_ID);
   expect(criticalHTML).toContain(FALLBACK_ID);
   expect(criticalHTML).not.toContain(RESOLVED_DEFERRED_ID);
-  let deferredHTML = html.replace(/.*<\/html>/gi, "");
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
   expect(deferredHTML).toContain(RESOLVED_DEFERRED_ID);
 
   let app = new PlaywrightFixture(appFixture, page);
-  await app.goto("/deferred-noscript-resolved");
+  await app.goto("/deferred-noscript-unresolved");
   await page.waitForSelector(`#${ROOT_ID}`);
   await page.waitForSelector(`#${DEFERRED_ID}`);
   await page.waitForSelector(`#${RESOLVED_DEFERRED_ID}`);
 });
+
+test("resolved promises render in initial payload and hydrates", async ({
+  page,
+}) => {
+  let response = await fixture.requestDocument("/deferred-script-resolved");
+  let html = await response.text();
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
+  expect(criticalHTML).toContain(ROOT_ID);
+  expect(criticalHTML).toContain(DEFERRED_ID);
+  expect(criticalHTML).not.toContain(FALLBACK_ID);
+  expect(criticalHTML).toContain(RESOLVED_DEFERRED_ID);
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
+  expect(deferredHTML).toBe("");
+
+  let app = new PlaywrightFixture(appFixture, page);
+  await app.goto("/deferred-script-resolved", true);
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${RESOLVED_DEFERRED_ID}`);
+
+  await ensureInteractivity(page);
+});
+
+test("slow promises render in subsequent payload and hydrates", async ({
+  page,
+}) => {
+  let response = await fixture.requestDocument("/deferred-script-unresolved");
+  let html = await response.text();
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
+  expect(criticalHTML).toContain(ROOT_ID);
+  expect(criticalHTML).toContain(DEFERRED_ID);
+  expect(criticalHTML).toContain(FALLBACK_ID);
+  expect(criticalHTML).not.toContain(RESOLVED_DEFERRED_ID);
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
+  expect(deferredHTML).toContain(RESOLVED_DEFERRED_ID);
+
+  let app = new PlaywrightFixture(appFixture, page);
+  await app.goto("/deferred-script-unresolved", true);
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${RESOLVED_DEFERRED_ID}`);
+
+  await ensureInteractivity(page);
+});
+
+async function ensureInteractivity(page: Page, expect = 1) {
+  const increment = await page.waitForSelector("#increment");
+  await increment.click();
+  await page.waitForSelector(`#count:has-text('${expect}')`);
+}

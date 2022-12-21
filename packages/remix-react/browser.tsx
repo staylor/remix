@@ -14,6 +14,9 @@ declare global {
   var __remixContext: {
     state: HydrationState;
     future: FutureConfig;
+    // TODO: Add other vars used in components.tsx by the deferred hydration scripts
+    // The number of active deferred keys rendered on the server
+    a?: number;
   };
   var __remixRouteModules: RouteModules;
   var __remixManifest: EntryContext["manifest"];
