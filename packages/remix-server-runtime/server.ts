@@ -1,5 +1,6 @@
 import type { StaticHandler, StaticHandlerContext } from "@remix-run/router";
 import {
+  DEFERRED_SYMBOL,
   getStaticContextFromError,
   isRouteErrorResponse,
   createStaticHandler,
@@ -16,7 +17,12 @@ import { ServerMode, isServerMode } from "./mode";
 import { matchServerRoutes } from "./routeMatching";
 import type { ServerRouteManifest } from "./routes";
 import { createStaticHandlerDataRoutes, createRoutes } from "./routes";
-import { json, isRedirectResponse, isResponse } from "./responses";
+import {
+  createDeferredReadableStream,
+  json,
+  isRedirectResponse,
+  isResponse,
+} from "./responses";
 import { createServerHandoffString } from "./serverHandoff";
 
 export type RequestHandler = (
@@ -123,6 +129,22 @@ async function handleDataRequestRR(
       return new Response(null, {
         status: 204,
         headers,
+      });
+    }
+
+    if (DEFERRED_SYMBOL in response) {
+      console.log("isDeferredData");
+      let body = createDeferredReadableStream(
+        response[DEFERRED_SYMBOL],
+        request.signal
+      );
+      let headers = new Headers(response.headers);
+      headers.set("Content-Type", "text/remix-deferred");
+      return new Response(body, {
+        headers,
+        status: response.statusCode,
+        // TODO: do we want to be able to set the status text?
+        // statusText: response.statusText,
       });
     }
 

@@ -69,6 +69,7 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Links, Meta, Outlet, Scripts, useLoaderData, useMatches } from "@remix-run/react";
           import Counter from "~/components/counter";
+          import Interactive from "~/components/interactive";
   
           export const meta: MetaFunction = () => ({
             charset: "utf-8",
@@ -97,6 +98,7 @@ test.describe("non-aborted", () => {
                     <p>{id}</p>
                     <Counter id={id} />
                     <Outlet />
+                    <Interactive />
                   </div>
                   {scripts ? <Scripts /> : null}
                   {/* Send arbitrary data so safari renders the initial shell before
@@ -127,6 +129,13 @@ test.describe("non-aborted", () => {
               <div id={id}>
                 <p>{id}</p>
                 <Counter id={id} />
+
+                <ul>
+                  <li><Link to="/deferred-script-resolved">deferred-script-resolved</Link></li>
+                  <li><Link to="/deferred-script-unresolved">deferred-script-unresolved</Link></li>
+                  <li><Link to="/deferred-script-rejected">deferred-script-rejected</Link></li>
+                  <li><Link to="/deferred-script-unrejected">deferred-script-unrejected</Link></li>
+                </ul>
               </div>
             );
           }
@@ -379,7 +388,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-          import Interactive from "~/components/interactive";
   
           export const handle = true;
   
@@ -440,7 +448,6 @@ test.describe("non-aborted", () => {
                     )}
                   />
                 </Suspense>
-                <Interactive />
               </div>
             );
           }
@@ -623,7 +630,7 @@ test.describe("non-aborted", () => {
     await assertConsole();
   });
 
-  test("routes are interactive when deferred promises are suspended and after resolve", async ({
+  test("routes are interactive when deferred promises are suspended and after resolve in subsequent payload", async ({
     page,
   }) => {
     let app = new PlaywrightFixture(appFixture, page);
@@ -655,7 +662,7 @@ test.describe("non-aborted", () => {
     await assertConsole();
   });
 
-  test("routes are interactive when deferred promises are suspended and after rejection", async ({
+  test("routes are interactive when deferred promises are suspended and after rejection in subsequent payload", async ({
     page,
   }) => {
     let app = new PlaywrightFixture(appFixture, page);
@@ -685,6 +692,78 @@ test.describe("non-aborted", () => {
     await ensureInteractivity(page, DEFERRED_ID, 2);
     await ensureInteractivity(page, RESOLVED_DEFERRED_ID, 2);
     await ensureInteractivity(page, MANUAL_ERROR_ID);
+
+    await assertConsole();
+  });
+
+  test("client transition with resolved promises work", async ({ page }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    let assertConsole = monitorConsole(page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-resolved");
+
+    await ensureInteractivity(page, ROOT_ID, 2);
+    await ensureInteractivity(page, DEFERRED_ID);
+    await ensureInteractivity(page, RESOLVED_DEFERRED_ID);
+
+    await assertConsole();
+  });
+
+  test("client transition with unresolved promises work", async ({ page }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    let assertConsole = monitorConsole(page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-unresolved");
+
+    await ensureInteractivity(page, ROOT_ID, 2);
+    await ensureInteractivity(page, DEFERRED_ID);
+    await ensureInteractivity(page, RESOLVED_DEFERRED_ID);
+
+    await assertConsole();
+  });
+
+  test("client transition with rejected promises work", async ({ page }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    let assertConsole = monitorConsole(page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-rejected");
+
+    await ensureInteractivity(page, ROOT_ID, 2);
+    await ensureInteractivity(page, DEFERRED_ID);
+    await ensureInteractivity(page, ERROR_ID);
+
+    await assertConsole();
+  });
+
+  test("client transition with unrejected promises work", async ({ page }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    let assertConsole = monitorConsole(page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-unrejected");
+
+    await ensureInteractivity(page, ROOT_ID, 2);
+    await ensureInteractivity(page, DEFERRED_ID);
+    await ensureInteractivity(page, ERROR_ID);
 
     await assertConsole();
   });

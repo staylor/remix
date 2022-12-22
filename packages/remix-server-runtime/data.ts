@@ -1,4 +1,4 @@
-import { json, isDeferredResponse, isResponse } from "./responses";
+import { json, isDeferredData, isResponse } from "./responses";
 import type {
   ActionFunction,
   DataFunctionArgs,
@@ -73,7 +73,7 @@ export async function callRouteLoaderRR({
     );
   }
 
-  if (isDeferredResponse(result)) {
+  if (isDeferredData(result)) {
     return result;
   }
 
