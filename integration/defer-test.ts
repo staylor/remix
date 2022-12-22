@@ -13,6 +13,21 @@ const INDEX_ID = "INDEX_ID";
 const DEFERRED_ID = "DEFERRED_ID";
 const RESOLVED_DEFERRED_ID = "RESOLVED_DEFERRED_ID";
 const FALLBACK_ID = "FALLBACK_ID";
+const ERROR_ID = "ERROR_ID";
+const MANUAL_RESOLVED_ID = "MANUAL_RESOLVED_ID";
+const MANUAL_FALLBACK_ID = "MANUAL_FALLBACK_ID";
+const MANUAL_ERROR_ID = "MANUAL_ERROR_ID";
+
+declare global {
+  // eslint-disable-next-line prefer-let/prefer-let
+  var __deferredManualResolveCache: {
+    nextId: number;
+    deferreds: Record<
+      string,
+      { resolve: (value: any) => void; reject: (error: Error) => void }
+    >;
+  };
+}
 
 test.beforeAll(async () => {
   fixture = await createFixture({
@@ -32,6 +47,21 @@ test.beforeAll(async () => {
               <p id={"count-"+id}>{count}</p>
             </div>
           )
+        }
+      `,
+      "app/components/interactive.tsx": js`
+        import { useEffect, useState } from "react";
+
+        export default function Interactive() {
+          let [interactive, setInteractive] = useState(false);
+          useEffect(() => {
+            setInteractive(true);
+          }, []);
+          return interactive ? (
+            <div id="interactive">
+              <p>interactive</p>
+            </div>
+          ) : null;
         }
       `,
       "app/root.tsx": js`
@@ -252,6 +282,168 @@ test.beforeAll(async () => {
           );
         }
       `,
+
+      "app/routes/deferred-script-rejected.tsx": js`
+        import { Suspense } from "react";
+        import { defer } from "@remix-run/node";
+        import { Await, Link, useLoaderData } from "@remix-run/react";
+        import Counter from "~/components/counter";
+
+        export const handle = true;
+
+        export function loader() {
+          return defer({
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: Promise.reject(new Error("${RESOLVED_DEFERRED_ID}")),
+          });
+        }
+
+        export default function Deferred() {
+          let { deferredId, resolvedId } = useLoaderData();
+          return (
+            <div id={deferredId}>
+              <p>{deferredId}</p>
+              <Counter id={deferredId} />
+              <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                <Await
+                  resolve={resolvedId}
+                  errorElement={
+                    <div id="${ERROR_ID}">
+                      error
+                      <Counter id="${ERROR_ID}" />
+                    </div>
+                  }
+                  children={(resolvedDeferredId) => (
+                    <div id={resolvedDeferredId}>
+                      <p>{resolvedDeferredId}</p>
+                      <Counter id={resolvedDeferredId} />
+                    </div>
+                  )}
+                />
+              </Suspense>
+            </div>
+          );
+        }
+      `,
+
+      "app/routes/deferred-script-unrejected.tsx": js`
+        import { Suspense } from "react";
+        import { defer } from "@remix-run/node";
+        import { Await, Link, useLoaderData } from "@remix-run/react";
+        import Counter from "~/components/counter";
+
+        export const handle = true;
+
+        export function loader() {
+          return defer({
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: new Promise(
+              (_, reject) => setTimeout(() => {
+                reject(new Error("${RESOLVED_DEFERRED_ID}"));
+              }, 10)
+            ),
+          });
+        }
+
+        export default function Deferred() {
+          let { deferredId, resolvedId } = useLoaderData();
+          return (
+            <div id={deferredId}>
+              <p>{deferredId}</p>
+              <Counter id={deferredId} />
+              <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                <Await
+                  resolve={resolvedId}
+                  errorElement={
+                    <div id="${ERROR_ID}">
+                      error
+                      <Counter id="${ERROR_ID}" />
+                    </div>
+                  }
+                  children={(resolvedDeferredId) => (
+                    <div id={resolvedDeferredId}>
+                      <p>{resolvedDeferredId}</p>
+                      <Counter id={resolvedDeferredId} />
+                    </div>
+                  )}
+                />
+              </Suspense>
+            </div>
+          );
+        }
+      `,
+
+      "app/routes/deferred-manual-resolve.tsx": js`
+        import { Suspense } from "react";
+        import { defer } from "@remix-run/node";
+        import { Await, Link, useLoaderData } from "@remix-run/react";
+        import Counter from "~/components/counter";
+        import Interactive from "~/components/interactive";
+
+        export const handle = true;
+
+        export function loader() {
+          global.__deferredManualResolveCache = global.__deferredManualResolveCache || {
+            nextId: 1,
+            deferreds: {},
+          };
+
+          let id = "" + global.__deferredManualResolveCache.nextId++;
+          let promise = new Promise((resolve, reject) => {
+            global.__deferredManualResolveCache.deferreds[id] = { resolve, reject };
+          });
+
+          return defer({
+            deferredId: "${DEFERRED_ID}",
+            resolvedId: new Promise(
+              (resolve) => setTimeout(() => {
+                resolve("${RESOLVED_DEFERRED_ID}");
+              }, 10)
+            ),
+            id,
+            manualValue: promise,
+          });
+        }
+
+        export default function Deferred() {
+          let { deferredId, resolvedId, id, manualValue } = useLoaderData();
+          return (
+            <div id={deferredId}>
+              <p>{deferredId}</p>
+              <Counter id={deferredId} />
+              <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                <Await
+                  resolve={resolvedId}
+                  children={(resolvedDeferredId) => (
+                    <div>
+                      <p id={resolvedDeferredId}>{id}</p>
+                      <Counter id={resolvedDeferredId} />
+                    </div>
+                  )}
+                />
+              </Suspense>
+              <Suspense fallback={<div id="${MANUAL_FALLBACK_ID}">manual fallback</div>}>
+                <Await
+                  resolve={manualValue}
+                  errorElement={
+                    <div id="${MANUAL_ERROR_ID}">
+                      error
+                      <Counter id="${MANUAL_ERROR_ID}" />
+                    </div>
+                  }
+                  children={(value) => (
+                    <div>
+                      <pre><code id="${MANUAL_RESOLVED_ID}">{JSON.stringify(value)}</code></pre>
+                      <Counter id="${MANUAL_RESOLVED_ID}" />
+                    </div>
+                  )}
+                />
+              </Suspense>
+              <Interactive />
+            </div>
+          );
+        }
+      `,
     },
   });
 
@@ -347,7 +539,7 @@ test("resolved promises render in initial payload and hydrates", async ({
   await assertConsole();
 });
 
-test("slow promises render in subsequent payload and hydrates", async ({
+test("slow to resolve promises render in subsequent payload and hydrates", async ({
   page,
 }) => {
   let response = await fixture.requestDocument("/deferred-script-unresolved");
@@ -374,6 +566,130 @@ test("slow promises render in subsequent payload and hydrates", async ({
   await assertConsole();
 });
 
+test("rejected promises render in initial payload and hydrates", async ({
+  page,
+}) => {
+  let response = await fixture.requestDocument("/deferred-script-rejected");
+  let html = await response.text();
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
+  expect(criticalHTML).toContain(ROOT_ID);
+  expect(criticalHTML).toContain(DEFERRED_ID);
+  expect(criticalHTML).not.toContain(FALLBACK_ID);
+  expect(criticalHTML).toContain(ERROR_ID);
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
+  expect(deferredHTML).toBe("");
+
+  let app = new PlaywrightFixture(appFixture, page);
+  let assertConsole = monitorConsole(page);
+  await app.goto("/deferred-script-rejected", true);
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${ERROR_ID}`);
+
+  await ensureInteractivity(page, ROOT_ID);
+  await ensureInteractivity(page, DEFERRED_ID);
+  await ensureInteractivity(page, ERROR_ID);
+
+  await assertConsole();
+});
+
+test("slow to reject promises render in subsequent payload and hydrates", async ({
+  page,
+}) => {
+  let response = await fixture.requestDocument("/deferred-script-unrejected");
+  let html = await response.text();
+  let criticalHTML = html.slice(0, html.indexOf("</html>") + 7);
+  expect(criticalHTML).toContain(ROOT_ID);
+  expect(criticalHTML).toContain(DEFERRED_ID);
+  expect(criticalHTML).toContain(FALLBACK_ID);
+  expect(criticalHTML).not.toContain(ERROR_ID);
+  let deferredHTML = html.slice(html.indexOf("</html>") + 7);
+  expect(deferredHTML).toContain(ERROR_ID);
+
+  let app = new PlaywrightFixture(appFixture, page);
+  let assertConsole = monitorConsole(page);
+  await app.goto("/deferred-script-unrejected", true);
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${ERROR_ID}`);
+
+  await ensureInteractivity(page, ROOT_ID);
+  await ensureInteractivity(page, DEFERRED_ID);
+  await ensureInteractivity(page, ERROR_ID);
+
+  await assertConsole();
+});
+
+test("routes are interactive when deferred promises are suspended and after resolve", async ({
+  page,
+}) => {
+  let app = new PlaywrightFixture(appFixture, page);
+  let assertConsole = monitorConsole(page);
+  app.goto("/deferred-manual-resolve");
+
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${MANUAL_FALLBACK_ID}`);
+  let idElement = await page.waitForSelector(`#${RESOLVED_DEFERRED_ID}`);
+  let id = await idElement.innerText();
+  expect(id).toBeTruthy();
+
+  // Ensure the deferred promise is suspended
+  await page.waitForSelector(`#${MANUAL_RESOLVED_ID}`, { state: "hidden" });
+
+  await page.waitForSelector("#interactive");
+  await ensureInteractivity(page, ROOT_ID);
+  await ensureInteractivity(page, DEFERRED_ID);
+  await ensureInteractivity(page, RESOLVED_DEFERRED_ID);
+
+  global.__deferredManualResolveCache.deferreds[id].resolve("value");
+
+  await ensureInteractivity(page, ROOT_ID, 2);
+  await ensureInteractivity(page, DEFERRED_ID, 2);
+  await ensureInteractivity(page, RESOLVED_DEFERRED_ID, 2);
+  await ensureInteractivity(page, MANUAL_RESOLVED_ID);
+
+  await assertConsole();
+});
+
+test("routes are interactive when deferred promises are suspended and after rejection", async ({
+  page,
+}) => {
+  let app = new PlaywrightFixture(appFixture, page);
+  let assertConsole = monitorConsole(page);
+  app.goto("/deferred-manual-resolve");
+
+  await page.waitForSelector(`#${ROOT_ID}`);
+  await page.waitForSelector(`#${DEFERRED_ID}`);
+  await page.waitForSelector(`#${MANUAL_FALLBACK_ID}`);
+  let idElement = await page.waitForSelector(`#${RESOLVED_DEFERRED_ID}`);
+  let id = await idElement.innerText();
+  expect(id).toBeTruthy();
+
+  // Ensure the deferred promise is suspended
+  await page.waitForSelector(`#${MANUAL_ERROR_ID}`, { state: "hidden" });
+
+  await page.waitForSelector("#interactive");
+  await ensureInteractivity(page, ROOT_ID);
+  await ensureInteractivity(page, DEFERRED_ID);
+  await ensureInteractivity(page, RESOLVED_DEFERRED_ID);
+
+  global.__deferredManualResolveCache.deferreds[id].reject(new Error("error"));
+
+  await ensureInteractivity(page, ROOT_ID, 2);
+  await ensureInteractivity(page, DEFERRED_ID, 2);
+  await ensureInteractivity(page, RESOLVED_DEFERRED_ID, 2);
+  await ensureInteractivity(page, MANUAL_ERROR_ID);
+
+  await assertConsole();
+});
+
+async function ensureInteractivity(page: Page, id: string, expect: number = 1) {
+  let increment = await page.waitForSelector("#increment-" + id);
+  await increment.click();
+  await page.waitForSelector(`#count-${id}:has-text('${expect}')`);
+}
+
 function monitorConsole(page: Page) {
   let messages: ConsoleMessage[] = [];
   page.on("console", (message) => {
@@ -396,10 +712,4 @@ function monitorConsole(page: Page) {
       throw new Error(`Unexpected console.log()`);
     }
   };
-}
-
-async function ensureInteractivity(page: Page, id: string, expect: number = 1) {
-  let increment = await page.waitForSelector("#increment-" + id);
-  await increment.click();
-  await page.waitForSelector(`#count-${id}:has-text('${expect}')`);
 }
