@@ -763,7 +763,7 @@ export type ScriptProps = Omit<
  * @see https://remix.run/api/remix#meta-links-scripts
  */
 export function Scripts(props: ScriptProps) {
-  let { manifest, serverHandoffString } = useRemixContext();
+  let { manifest, serverHandoffString, abortDelay } = useRemixContext();
   let { router, static: isStatic } = useDataRouterContext();
   let { matches } = useDataRouterStateContext();
   let staticContext = React.useContext(DataStaticRouterContext);
@@ -800,6 +800,9 @@ export function Scripts(props: ScriptProps) {
           "  __remixContext.t = __remixContext.t || {};",
           "  __remixContext.t[i] = __remixContext.t[i] || {};",
           "  let p = new Promise((r, e) => {__remixContext.t[i][k] = {r:(v)=>{p._data=v;r(v);},e:(v)=>{p._error=v;e(v);}};});",
+          typeof abortDelay === "number"
+            ? `setTimeout(() => {if(typeof p._error !== "undefined" || typeof p._data !== "undefined"){return;} __remixContext.t[i][k].e(new Error("Server timeout."))}, ${abortDelay});`
+            : "",
           "  p._tracked=true;",
           "  return p;",
           "};",
