@@ -873,18 +873,6 @@ export function Scripts(props: ScriptProps) {
           ? `__remixContext.a=${deferredScripts.length};`
           : "");
 
-    if (!isStatic && __remixContext.a) {
-      for (let i = 0; i < __remixContext.a; i++) {
-        deferredScripts.push(
-          <script
-            key={i}
-            suppressHydrationWarning
-            dangerouslySetInnerHTML={{ __html: "" }}
-          />
-        );
-      }
-    }
-
     let routeModulesScript = !isStatic
       ? " "
       : `${matches
@@ -926,6 +914,12 @@ import(${JSON.stringify(manifest.entry.module)});`;
     // scripts as they were when the page first loaded
     // eslint-disable-next-line
   }, []);
+
+  if (!isStatic && __remixContext.a) {
+    for (let i = 0; i < __remixContext.a; i++) {
+      deferredScripts.push(<DeferredHydrationScript key={i} />);
+    }
+  }
 
   // avoid waterfall when importing the next route module
   let nextMatches = React.useMemo(() => {
@@ -972,8 +966,8 @@ import(${JSON.stringify(manifest.entry.module)});`;
           crossOrigin={props.crossOrigin}
         />
       ))}
-      {isHydrated ? null : initialScripts}
-      {deferredScripts}
+      {!isHydrated && initialScripts}
+      {!isHydrated && deferredScripts}
     </>
   );
 }
@@ -983,11 +977,11 @@ function DeferredHydrationScript({
   deferredData,
   routeId,
 }: {
-  dataKey: string;
-  deferredData: DeferredData;
-  routeId: string;
+  dataKey?: string;
+  deferredData?: DeferredData;
+  routeId?: string;
 }) {
-  if (typeof document === "undefined") {
+  if (typeof document === "undefined" && deferredData && dataKey && routeId) {
     invariant(
       deferredData.pendingKeys.includes(dataKey),
       `Deferred data for route ${routeId} with key ${dataKey} was not pending but tried to render a script for it.`
@@ -995,8 +989,21 @@ function DeferredHydrationScript({
   }
 
   return (
-    <React.Suspense fallback={null}>
-      {typeof document === "undefined" ? (
+    <React.Suspense
+      fallback={
+        typeof document === "undefined" &&
+        deferredData &&
+        dataKey &&
+        routeId ? null : (
+          <script
+            async
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: " " }}
+          />
+        )
+      }
+    >
+      {typeof document === "undefined" && deferredData && dataKey && routeId ? (
         <Await
           resolve={deferredData.data[dataKey]}
           errorElement={
@@ -1004,6 +1011,7 @@ function DeferredHydrationScript({
           }
           children={(data) => (
             <script
+              async
               suppressHydrationWarning
               dangerouslySetInnerHTML={{
                 __html: `__remixContext.r(${JSON.stringify(
@@ -1017,8 +1025,9 @@ function DeferredHydrationScript({
         />
       ) : (
         <script
+          async
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: "" }}
+          dangerouslySetInnerHTML={{ __html: " " }}
         />
       )}
     </React.Suspense>
