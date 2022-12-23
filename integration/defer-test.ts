@@ -11,6 +11,7 @@ const DEFERRED_ID = "DEFERRED_ID";
 const RESOLVED_DEFERRED_ID = "RESOLVED_DEFERRED_ID";
 const FALLBACK_ID = "FALLBACK_ID";
 const ERROR_ID = "ERROR_ID";
+const ERROR_BOUNDARY_ID = "ERROR_BOUNDARY_ID";
 const MANUAL_RESOLVED_ID = "MANUAL_RESOLVED_ID";
 const MANUAL_FALLBACK_ID = "MANUAL_FALLBACK_ID";
 const MANUAL_ERROR_ID = "MANUAL_ERROR_ID";
@@ -67,7 +68,7 @@ test.describe("non-aborted", () => {
         `,
         "app/root.tsx": js`
           import { defer } from "@remix-run/node";
-          import { Links, Meta, Outlet, Scripts, useLoaderData, useMatches } from "@remix-run/react";
+          import { Links, Meta, Outlet, Scripts, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
           import Interactive from "~/components/interactive";
   
@@ -83,10 +84,6 @@ test.describe("non-aborted", () => {
   
           export default function Root() {
             let { id } = useLoaderData();
-            let matches = useMatches();
-            // Set export const handle = true on a route to enable
-            // scripts for that route.
-            let scripts = matches.some(match => match.handle);
             return (
               <html lang="en">
                 <head>
@@ -100,7 +97,7 @@ test.describe("non-aborted", () => {
                     <Outlet />
                     <Interactive />
                   </div>
-                  {scripts ? <Scripts /> : null}
+                  <Scripts />
                   {/* Send arbitrary data so safari renders the initial shell before
                       the document finishes downloading. */}
                   {Array(6000).fill(null).map((_, i)=><p key={i}>YOOOOOOOOOO   {i}</p>)}
@@ -114,8 +111,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -135,6 +130,8 @@ test.describe("non-aborted", () => {
                   <li><Link to="/deferred-script-unresolved">deferred-script-unresolved</Link></li>
                   <li><Link to="/deferred-script-rejected">deferred-script-rejected</Link></li>
                   <li><Link to="/deferred-script-unrejected">deferred-script-unrejected</Link></li>
+                  <li><Link to="/deferred-script-rejected-no-error-element">deferred-script-rejected-no-error-element</Link></li>
+                  <li><Link to="/deferred-script-unrejected-no-error-element">deferred-script-unrejected-no-error-element</Link></li>
                 </ul>
               </div>
             );
@@ -221,8 +218,6 @@ test.describe("non-aborted", () => {
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
   
-          export const handle = true;
-  
           export function loader() {
             return defer({
               deferredId: "${DEFERRED_ID}",
@@ -257,8 +252,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -298,8 +291,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -341,8 +332,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -389,8 +378,6 @@ test.describe("non-aborted", () => {
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
   
-          export const handle = true;
-  
           export function loader() {
             return defer({
               deferredId: "${DEFERRED_ID}",
@@ -421,9 +408,9 @@ test.describe("non-aborted", () => {
 
           export function ErrorBoundary() {
             return (
-              <div id="${ERROR_ID}">
+              <div id="${ERROR_BOUNDARY_ID}">
                 error
-                <Counter id="${ERROR_ID}" />
+                <Counter id="${ERROR_BOUNDARY_ID}" />
               </div>
             );
           }
@@ -434,8 +421,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -471,9 +456,9 @@ test.describe("non-aborted", () => {
 
           export function ErrorBoundary() {
             return (
-              <div id="${ERROR_ID}">
+              <div id="${ERROR_BOUNDARY_ID}">
                 error
-                <Counter id="${ERROR_ID}" />
+                <Counter id="${ERROR_BOUNDARY_ID}" />
               </div>
             );
           }
@@ -484,8 +469,6 @@ test.describe("non-aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             global.__deferredManualResolveCache = global.__deferredManualResolveCache || {
@@ -732,10 +715,10 @@ test.describe("non-aborted", () => {
     let app = new PlaywrightFixture(appFixture, page);
     await app.goto("/deferred-script-rejected-no-error-element", true);
     await page.waitForSelector(`#${ROOT_ID}`);
-    await page.waitForSelector(`#${ERROR_ID}`);
+    await page.waitForSelector(`#${ERROR_BOUNDARY_ID}`);
 
     await ensureInteractivity(page, ROOT_ID);
-    await ensureInteractivity(page, ERROR_ID);
+    await ensureInteractivity(page, ERROR_BOUNDARY_ID);
   });
 
   test("slow to reject promises bubble to ErrorBoundary on hydrate", async ({
@@ -744,10 +727,10 @@ test.describe("non-aborted", () => {
     let app = new PlaywrightFixture(appFixture, page);
     await app.goto("/deferred-script-unrejected-no-error-element", true);
     await page.waitForSelector(`#${ROOT_ID}`);
-    await page.waitForSelector(`#${ERROR_ID}`);
+    await page.waitForSelector(`#${ERROR_BOUNDARY_ID}`);
 
     await ensureInteractivity(page, ROOT_ID);
-    await ensureInteractivity(page, ERROR_ID);
+    await ensureInteractivity(page, ERROR_BOUNDARY_ID);
   });
 
   test("routes are interactive when deferred promises are suspended and after resolve in subsequent payload", async ({
@@ -774,10 +757,10 @@ test.describe("non-aborted", () => {
 
     global.__deferredManualResolveCache.deferreds[id].resolve("value");
 
-    await ensureInteractivity(page, ROOT_ID, 2);
-    await ensureInteractivity(page, DEFERRED_ID, 2);
-    await ensureInteractivity(page, RESOLVED_DEFERRED_ID, 2);
     await ensureInteractivity(page, MANUAL_RESOLVED_ID);
+    await ensureInteractivity(page, RESOLVED_DEFERRED_ID, 2);
+    await ensureInteractivity(page, DEFERRED_ID, 2);
+    await ensureInteractivity(page, ROOT_ID, 2);
 
     await assertConsole();
   });
@@ -787,7 +770,7 @@ test.describe("non-aborted", () => {
   }) => {
     let app = new PlaywrightFixture(appFixture, page);
     let assertConsole = monitorConsole(page);
-    app.goto("/deferred-manual-resolve");
+    await app.goto("/deferred-manual-resolve");
 
     await page.waitForSelector(`#${ROOT_ID}`);
     await page.waitForSelector(`#${DEFERRED_ID}`);
@@ -861,11 +844,12 @@ test.describe("non-aborted", () => {
     await ensureInteractivity(page, ROOT_ID);
     await ensureInteractivity(page, INDEX_ID);
 
-    await app.clickLink("/deferred-script-rejected");
+    app.clickLink("/deferred-script-rejected");
 
-    await ensureInteractivity(page, ROOT_ID, 2);
     await ensureInteractivity(page, DEFERRED_ID);
     await ensureInteractivity(page, ERROR_ID);
+    await ensureInteractivity(page, DEFERRED_ID, 2);
+    await ensureInteractivity(page, ROOT_ID, 2);
 
     await assertConsole();
   });
@@ -881,11 +865,44 @@ test.describe("non-aborted", () => {
 
     await app.clickLink("/deferred-script-unrejected");
 
-    await ensureInteractivity(page, ROOT_ID, 2);
     await ensureInteractivity(page, DEFERRED_ID);
     await ensureInteractivity(page, ERROR_ID);
+    await ensureInteractivity(page, DEFERRED_ID, 2);
+    await ensureInteractivity(page, ROOT_ID, 2);
 
     await assertConsole();
+  });
+
+  test("client transition with rejected promises bubble to ErrorBoundary", async ({
+    page,
+  }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-rejected-no-error-element");
+
+    await ensureInteractivity(page, ERROR_BOUNDARY_ID);
+    await ensureInteractivity(page, ROOT_ID, 2);
+  });
+
+  test("client transition with unrejected promises bubble to ErrorBoundary", async ({
+    page,
+  }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    await app.goto("/");
+
+    await page.waitForSelector("#interactive");
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, INDEX_ID);
+
+    await app.clickLink("/deferred-script-unrejected-no-error-element");
+
+    await ensureInteractivity(page, ERROR_BOUNDARY_ID);
+    await ensureInteractivity(page, ROOT_ID, 2);
   });
 });
 
@@ -1051,7 +1068,7 @@ test.describe("aborted", () => {
         `,
         "app/root.tsx": js`
           import { defer } from "@remix-run/node";
-          import { Links, Meta, Outlet, Scripts, useLoaderData, useMatches } from "@remix-run/react";
+          import { Links, Meta, Outlet, Scripts, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
           import Interactive from "~/components/interactive";
   
@@ -1067,10 +1084,6 @@ test.describe("aborted", () => {
   
           export default function Root() {
             let { id } = useLoaderData();
-            let matches = useMatches();
-            // Set export const handle = true on a route to enable
-            // scripts for that route.
-            let scripts = matches.some(match => match.handle);
             return (
               <html lang="en">
                 <head>
@@ -1084,7 +1097,7 @@ test.describe("aborted", () => {
                     <Outlet />
                     <Interactive />
                   </div>
-                  {scripts ? <Scripts /> : null}
+                  <Scripts />
                   {/* Send arbitrary data so safari renders the initial shell before
                       the document finishes downloading. */}
                   {Array(6000).fill(null).map((_, i)=><p key={i}>YOOOOOOOOOO   {i}</p>)}
@@ -1099,8 +1112,6 @@ test.describe("aborted", () => {
           import { defer } from "@remix-run/node";
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
-  
-          export const handle = true;
   
           export function loader() {
             return defer({
@@ -1147,8 +1158,6 @@ test.describe("aborted", () => {
           import { Await, Link, useLoaderData } from "@remix-run/react";
           import Counter from "~/components/counter";
   
-          export const handle = true;
-  
           export function loader() {
             return defer({
               deferredId: "${DEFERRED_ID}",
@@ -1183,9 +1192,9 @@ test.describe("aborted", () => {
 
           export function ErrorBoundary() {
             return (
-              <div id="${ERROR_ID}">
+              <div id="${ERROR_BOUNDARY_ID}">
                 error
-                <Counter id="${ERROR_ID}" />
+                <Counter id="${ERROR_BOUNDARY_ID}" />
               </div>
             );
           }
@@ -1219,14 +1228,15 @@ test.describe("aborted", () => {
     let app = new PlaywrightFixture(appFixture, page);
     await app.goto("/deferred-server-aborted-no-error-element");
     await page.waitForSelector(`#${ROOT_ID}`);
-    await page.waitForSelector(`#${ERROR_ID}`);
+    await page.waitForSelector(`#${ERROR_BOUNDARY_ID}`);
 
     await ensureInteractivity(page, ROOT_ID);
-    await ensureInteractivity(page, ERROR_ID);
+    await ensureInteractivity(page, ERROR_BOUNDARY_ID);
   });
 });
 
 async function ensureInteractivity(page: Page, id: string, expect: number = 1) {
+  await page.waitForSelector("#interactive");
   let increment = await page.waitForSelector("#increment-" + id);
   await increment.click();
   await page.waitForSelector(`#count-${id}:has-text('${expect}')`);
@@ -1240,7 +1250,9 @@ function monitorConsole(page: Page) {
 
   return async () => {
     if (!messages.length) return;
+    let errors: string[] = [];
     for (let message of messages) {
+      let logs = [];
       let args = message.args();
       if (args[0]) {
         let arg0 = await args[0].jsonValue();
@@ -1250,8 +1262,14 @@ function monitorConsole(page: Page) {
         ) {
           continue;
         }
+        logs.push(arg0);
       }
-      throw new Error(`Unexpected console.log()`);
+      errors.push(
+        `Unexpected console.log(${JSON.stringify(logs).slice(1, -1)})`
+      );
+    }
+    if (errors.length) {
+      throw new Error(`Unexpected console.log's:\n` + errors.join("\n") + "\n");
     }
   };
 }
