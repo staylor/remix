@@ -133,7 +133,6 @@ async function handleDataRequestRR(
     }
 
     if (DEFERRED_SYMBOL in response) {
-      console.log("isDeferredData");
       let body = createDeferredReadableStream(
         response[DEFERRED_SYMBOL],
         request.signal

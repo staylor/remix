@@ -383,6 +383,102 @@ test.describe("non-aborted", () => {
           }
         `,
 
+        "app/routes/deferred-script-rejected-no-error-element.tsx": js`
+          import { Suspense } from "react";
+          import { defer } from "@remix-run/node";
+          import { Await, Link, useLoaderData } from "@remix-run/react";
+          import Counter from "~/components/counter";
+  
+          export const handle = true;
+  
+          export function loader() {
+            return defer({
+              deferredId: "${DEFERRED_ID}",
+              resolvedId: Promise.reject(new Error("${RESOLVED_DEFERRED_ID}")),
+            });
+          }
+  
+          export default function Deferred() {
+            let { deferredId, resolvedId } = useLoaderData();
+            return (
+              <div id={deferredId}>
+                <p>{deferredId}</p>
+                <Counter id={deferredId} />
+                <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                  <Await
+                    resolve={resolvedId}
+                    children={(resolvedDeferredId) => (
+                      <div id={resolvedDeferredId}>
+                        <p>{resolvedDeferredId}</p>
+                        <Counter id={resolvedDeferredId} />
+                      </div>
+                    )}
+                  />
+                </Suspense>
+              </div>
+            );
+          }
+
+          export function ErrorBoundary() {
+            return (
+              <div id="${ERROR_ID}">
+                error
+                <Counter id="${ERROR_ID}" />
+              </div>
+            );
+          }
+        `,
+
+        "app/routes/deferred-script-unrejected-no-error-element.tsx": js`
+          import { Suspense } from "react";
+          import { defer } from "@remix-run/node";
+          import { Await, Link, useLoaderData } from "@remix-run/react";
+          import Counter from "~/components/counter";
+  
+          export const handle = true;
+  
+          export function loader() {
+            return defer({
+              deferredId: "${DEFERRED_ID}",
+              resolvedId: new Promise(
+                (_, reject) => setTimeout(() => {
+                  reject(new Error("${RESOLVED_DEFERRED_ID}"));
+                }, 10)
+              ),
+            });
+          }
+  
+          export default function Deferred() {
+            let { deferredId, resolvedId } = useLoaderData();
+            return (
+              <div id={deferredId}>
+                <p>{deferredId}</p>
+                <Counter id={deferredId} />
+                <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                  <Await
+                    resolve={resolvedId}
+                    children={(resolvedDeferredId) => (
+                      <div id={resolvedDeferredId}>
+                        <p>{resolvedDeferredId}</p>
+                        <Counter id={resolvedDeferredId} />
+                      </div>
+                    )}
+                  />
+                </Suspense>
+              </div>
+            );
+          }
+
+          export function ErrorBoundary() {
+            return (
+              <div id="${ERROR_ID}">
+                error
+                <Counter id="${ERROR_ID}" />
+              </div>
+            );
+          }
+        `,
+
         "app/routes/deferred-manual-resolve.tsx": js`
           import { Suspense } from "react";
           import { defer } from "@remix-run/node";
@@ -628,6 +724,30 @@ test.describe("non-aborted", () => {
     await ensureInteractivity(page, ERROR_ID);
 
     await assertConsole();
+  });
+
+  test("rejected promises bubble to ErrorBoundary on hydrate", async ({
+    page,
+  }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    await app.goto("/deferred-script-rejected-no-error-element", true);
+    await page.waitForSelector(`#${ROOT_ID}`);
+    await page.waitForSelector(`#${ERROR_ID}`);
+
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, ERROR_ID);
+  });
+
+  test("slow to reject promises bubble to ErrorBoundary on hydrate", async ({
+    page,
+  }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    await app.goto("/deferred-script-unrejected-no-error-element", true);
+    await page.waitForSelector(`#${ROOT_ID}`);
+    await page.waitForSelector(`#${ERROR_ID}`);
+
+    await ensureInteractivity(page, ROOT_ID);
+    await ensureInteractivity(page, ERROR_ID);
   });
 
   test("routes are interactive when deferred promises are suspended and after resolve in subsequent payload", async ({
@@ -933,6 +1053,7 @@ test.describe("aborted", () => {
           import { defer } from "@remix-run/node";
           import { Links, Meta, Outlet, Scripts, useLoaderData, useMatches } from "@remix-run/react";
           import Counter from "~/components/counter";
+          import Interactive from "~/components/interactive";
   
           export const meta: MetaFunction = () => ({
             charset: "utf-8",
@@ -961,6 +1082,7 @@ test.describe("aborted", () => {
                     <p>{id}</p>
                     <Counter id={id} />
                     <Outlet />
+                    <Interactive />
                   </div>
                   {scripts ? <Scripts /> : null}
                   {/* Send arbitrary data so safari renders the initial shell before
@@ -1018,6 +1140,56 @@ test.describe("aborted", () => {
             );
           }
         `,
+
+        "app/routes/deferred-server-aborted-no-error-element.tsx": js`
+          import { Suspense } from "react";
+          import { defer } from "@remix-run/node";
+          import { Await, Link, useLoaderData } from "@remix-run/react";
+          import Counter from "~/components/counter";
+  
+          export const handle = true;
+  
+          export function loader() {
+            return defer({
+              deferredId: "${DEFERRED_ID}",
+              resolvedId: new Promise(
+                (resolve) => setTimeout(() => {
+                  resolve("${RESOLVED_DEFERRED_ID}");
+                }, 10000)
+              ),
+            });
+          }
+  
+          export default function Deferred() {
+            let { deferredId, resolvedId } = useLoaderData();
+            return (
+              <div id={deferredId}>
+                <p>{deferredId}</p>
+                <Counter id={deferredId} />
+                <Suspense fallback={<div id="${FALLBACK_ID}">fallback</div>}>
+                  <Await
+                    resolve={resolvedId}
+                    children={(resolvedDeferredId) => (
+                      <div id={resolvedDeferredId}>
+                        <p>{resolvedDeferredId}</p>
+                        <Counter id={resolvedDeferredId} />
+                      </div>
+                    )}
+                  />
+                </Suspense>
+              </div>
+            );
+          }
+
+          export function ErrorBoundary() {
+            return (
+              <div id="${ERROR_ID}">
+                error
+                <Counter id="${ERROR_ID}" />
+              </div>
+            );
+          }
+        `,
       },
     });
 
@@ -1038,6 +1210,18 @@ test.describe("aborted", () => {
 
     await ensureInteractivity(page, ROOT_ID);
     await ensureInteractivity(page, DEFERRED_ID);
+    await ensureInteractivity(page, ERROR_ID);
+  });
+
+  test("server aborts render the ErrorBoundary when no errorElement", async ({
+    page,
+  }) => {
+    let app = new PlaywrightFixture(appFixture, page);
+    await app.goto("/deferred-server-aborted-no-error-element");
+    await page.waitForSelector(`#${ROOT_ID}`);
+    await page.waitForSelector(`#${ERROR_ID}`);
+
+    await ensureInteractivity(page, ROOT_ID);
     await ensureInteractivity(page, ERROR_ID);
   });
 });
