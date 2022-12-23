@@ -1,4 +1,4 @@
-import { AbortedDeferredError, DeferredData } from "@remix-run/router";
+import { AbortedDeferredError, UNSAFE_DeferredData as DeferredData } from "@remix-run/router";
 import type { FormMethod as FormMethodRR } from "react-router-dom";
 
 export type AppData = any;
@@ -50,7 +50,10 @@ export async function fetchData(
     init = {
       method: request.method,
       body: await request.formData(),
+      signal: request.signal,
     };
+  } else {
+    init = { signal: request.signal };
   }
 
   let response = await fetch(url.href, init);

@@ -6,7 +6,7 @@ import type {
 import * as React from "react";
 import type {
   AgnosticDataRouteMatch,
-  DeferredData,
+  UNSAFE_DeferredData as DeferredData,
   ErrorResponse,
   Navigation,
   TrackedPromise,
@@ -783,6 +783,7 @@ export function Scripts(props: ScriptProps) {
     contextScript += !activeDeferreds
       ? ""
       : [
+          "// Add dev only comments about what these are used for",
           "__remixContext.p = function(v,e,p,x) {",
           "  if (typeof e !== 'undefined') {",
           "    x=new Error(e.message);",
@@ -990,6 +991,9 @@ function DeferredHydrationScript({
   return (
     <React.Suspense
       fallback={
+        // This makes absolutely no sense. The server renders null as a fallback,
+        // but when hydrating, we need to render a script tag to avoid a hydration issue.
+        // To reproduce a hydration mismatch, just render null as a fallback.
         typeof document === "undefined" &&
         deferredData &&
         dataKey &&

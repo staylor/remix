@@ -1,6 +1,6 @@
 import {
   defer as routerDefer,
-  type DeferredData,
+  type UNSAFE_DeferredData as DeferredData,
   type TrackedPromise,
 } from "@remix-run/router";
 
