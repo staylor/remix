@@ -49,8 +49,11 @@ let createBroadcast = <Event>(
       });
     }, options.delayMs);
   };
-  return broadcast;
+  return broadcast; // or stuff
 };
+
+let x = 'fasdf'
+console.log(x)
 
 let liveReload = async (
   config: RemixConfig,
@@ -67,6 +70,7 @@ let liveReload = async (
     console.log(_message);
     broadcast({ type: "LOG", message: _message });
   };
+  let reload = () => broadcast({ type: "RELOAD" });
 
   let dispose = await Compiler.watch(config, {
     mode,
@@ -114,7 +118,6 @@ export let serve = async (config: RemixConfig, proxyPort: number) => {
   app.disable("x-powered-by");
   app.use(compression());
 
-  console.log("public path: " + config.publicPath);
   // handle assets
   app.use(
     config.publicPath,
@@ -152,12 +155,7 @@ export let serve = async (config: RemixConfig, proxyPort: number) => {
       // TBD_naming_dev: 'node ./server.js',
       // dev: 'ts-node ./server.ts',
       onInitialBuild: () => {
-        serverProcess = execa("node", ["server.js"], {
-          cwd: config.rootDirectory,
-          env: {
-            NODE_ENV: "development",
-          },
-        });
+        serverProcess = createServerProcess(config);
 
         // race
 
@@ -170,12 +168,7 @@ export let serve = async (config: RemixConfig, proxyPort: number) => {
         serverProcess?.cancel();
         let channel = createChannel<void>();
         // ask if subprocess should be restarted or not. e.g. wrangler/node latest/bun
-        serverProcess = execa("node", ["server.js"], {
-          cwd: config.rootDirectory,
-          env: {
-            NODE_ENV: "development",
-          },
-        });
+        serverProcess = createServerProcess(config);
         // wait until proxy_port is taken by the subprocess
         serverProcess.stdout?.on("data", (data) => {
           console.log(data);
@@ -188,4 +181,13 @@ export let serve = async (config: RemixConfig, proxyPort: number) => {
     serverProcess?.cancel();
     devServer?.close();
   }
+};
+
+let createServerProcess = (config: RemixConfig) => {
+  return execa("node", ["server.js"], {
+    cwd: config.rootDirectory,
+    env: {
+      NODE_ENV: "development",
+    },
+  });
 };
