@@ -80,7 +80,7 @@ export async function watch(
     onRebuildStart?.();
     let start = Date.now();
     await compile(compiler, { onCompileFailure });
-    onRebuildFinish?.(Date.now() - start);
+    await onRebuildFinish?.(Date.now() - start);
   }, 100);
 
   let toWatch = [config.appDirectory];

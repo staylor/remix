@@ -12834,6 +12834,11 @@ w3c-xmlserializer@^2.0.0:
   dependencies:
     xml-name-validator "^3.0.0"
 
+wait-for-localhost@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.npmjs.org/wait-for-localhost/-/wait-for-localhost-4.0.1.tgz#cb1dbfc5d070057700ea50c3e36d1b1abe864d51"
+  integrity sha512-/q7fnGj3ATD4myCqlH3ZB/soX3cFZAztMvZgxOv0bZ7+8MsBUQrxIVrUkLsmro0qZAI5L9/QLGhJ0RsTfCmIbQ==
+
 walker@^1.0.7:
   version "1.0.7"
   resolved "https://registry.npmjs.org/walker/-/walker-1.0.7.tgz"

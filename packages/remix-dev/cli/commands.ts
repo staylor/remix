@@ -8,6 +8,7 @@ import * as esbuild from "esbuild";
 import * as colors from "../colors";
 import * as compiler from "../compiler";
 import * as devServer from "../devServer";
+import * as devServer2 from "../devServer2";
 import type { RemixConfig } from "../config";
 import { readConfig } from "../config";
 import { formatRoutes, RoutesFormat, isRoutesFormat } from "../config/format";
@@ -238,5 +239,6 @@ export async function codemod(
 export async function dev2(projectDir?: string) {
   projectDir ??= process.cwd();
   let config = await readConfig(projectDir);
-  await devServer.serve2(config, 3000);
+  let dispose = await devServer2.serve(config, 3000);
+  await new Promise(() => {})
 }
